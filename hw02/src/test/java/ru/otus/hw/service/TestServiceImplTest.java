@@ -8,9 +8,12 @@ import org.mockito.MockitoAnnotations;
 import ru.otus.hw.dao.QuestionDao;
 import ru.otus.hw.domain.Answer;
 import ru.otus.hw.domain.Question;
+import ru.otus.hw.domain.Student;
+import ru.otus.hw.domain.TestResult;
 
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
@@ -24,11 +27,13 @@ class TestServiceImplTest {
 
     private AutoCloseable mocks;
     private TestService testService;
+    private Student student;
 
     @BeforeEach
     void setUp() {
         mocks = MockitoAnnotations.openMocks(this);
         testService = new TestServiceImpl(ioService, questionDao);
+        student = new Student("Test", "Test");
     }
 
     @AfterEach
@@ -43,8 +48,9 @@ class TestServiceImplTest {
                 new Answer("Certainly. The red UFO is from Mars. And green is from Venus", false),
                 new Answer("Absolutely not", false)));
         when(questionDao.findAll()).thenReturn(List.of(q1));
+        when(ioService.readIntForRange(anyInt(), anyInt(), anyString())).thenReturn(1);
 
-        testService.executeTest();
+        TestResult result = testService.executeTestFor(student);
 
         verify(ioService).printFormattedLine("Please answer the questions below%n");
 
@@ -55,16 +61,24 @@ class TestServiceImplTest {
         verify(ioService).printLine("3. Absolutely not");
 
         verify(questionDao).findAll();
+
+        assertThat(result.getStudent()).isEqualTo(student);
+        assertThat(result.getAnsweredQuestions()).containsExactly(q1);
+        assertThat(result.getRightAnswersCount()).isEqualTo(1);
     }
 
     @Test
     void shouldNotPrintQuestionsWhenDaoReturnsEmptyList() {
         when(questionDao.findAll()).thenReturn(List.of());
 
-        testService.executeTest();
+        TestResult result = testService.executeTestFor(student);
 
         verify(ioService).printLine("");
         verify(ioService).printFormattedLine("Please answer the questions below%n");
         verify(ioService, times(1)).printLine(anyString());
+
+        assertThat(result.getStudent()).isEqualTo(student);
+        assertThat(result.getAnsweredQuestions()).isEmpty();
+        assertThat(result.getRightAnswersCount()).isZero();
     }
 }
